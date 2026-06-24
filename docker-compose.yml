@@ -1,24 +1,30 @@
 services:
-  postgres:
-    image: postgres:17-alpine
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: regretify-core:latest
     restart: unless-stopped
     environment:
-      POSTGRES_DB: regretify
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      HOST: ${HOST:-0.0.0.0}
+      DATABASE_HOST: ${DATABASE_HOST:-postgres}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-regretify}
+      DATABASE_USER: ${DATABASE_USER:-replace-in-portainer}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-replace-in-portainer}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - regretify_net
 
-  redis:
-    image: redis:8-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-
-volumes:
-  postgres-data:
-  redis-data:
+networks:
+  regretify_net:
+    external: true
