@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/app.setup';
 
 describe('Health (e2e)', () => {
   let app: INestApplication;
@@ -12,14 +13,15 @@ describe('Health (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureApp(app);
     await app.init();
   });
 
-  it('/health (GET)', () => {
+  it('/api/health (GET)', () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
     return request(httpServer)
-      .get('/health')
+      .get('/api/health')
       .expect(200)
       .expect(({ body }) => {
         expect(body).toMatchObject({

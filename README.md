@@ -3,7 +3,7 @@
 Backend API for Regretify.
 
 Current live module:
-- `GET /health`
+- `GET /api/health`
 
 ## Deploy Shape
 
@@ -80,5 +80,5 @@ docker run --rm -p 3000:3000 \
 ## Health Check
 
 ```txt
-GET /health
+GET /api/health
 ```
