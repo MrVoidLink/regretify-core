@@ -4,6 +4,8 @@ Backend API for Regretify.
 
 Current live module:
 - `GET /api/health`
+- `POST /api/admin/auth/login`
+- `GET /api/admin/auth/me`
 
 ## Deploy Shape
 
@@ -34,6 +36,11 @@ DATABASE_USER=...
 DATABASE_PASSWORD=...
 REDIS_HOST=redis
 REDIS_PORT=6379
+ADMIN_AUTH_JWT_SECRET=...
+ADMIN_AUTH_JWT_EXPIRES_IN_SECONDS=43200
+ADMIN_BOOTSTRAP_EMAIL=admin@regretify.app
+ADMIN_BOOTSTRAP_PASSWORD=...
+ADMIN_BOOTSTRAP_ROLE=admin
 ```
 
 Example placeholders live in [.env.example](./.env.example).
@@ -74,6 +81,10 @@ docker run --rm -p 3000:3000 \
   -e DATABASE_PASSWORD=replace-me \
   -e REDIS_HOST=redis \
   -e REDIS_PORT=6379 \
+  -e ADMIN_AUTH_JWT_SECRET=replace-me \
+  -e ADMIN_BOOTSTRAP_EMAIL=admin@regretify.app \
+  -e ADMIN_BOOTSTRAP_PASSWORD=replace-me \
+  -e ADMIN_BOOTSTRAP_ROLE=admin \
   regretify-core
 ```
 
