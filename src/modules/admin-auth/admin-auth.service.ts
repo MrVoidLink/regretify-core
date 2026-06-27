@@ -1,7 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,7 +14,15 @@ import { compare, hash } from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { getAdminAuthConfig } from '../../config/auth.config';
 import { AdminUser } from '../../database/entities/admin-user.entity';
+import {
+  ADMIN_ROLE_SUPER_ADMIN,
+  ADMIN_USER_STATUS_ACTIVE,
+  normalizeAdminRole,
+  normalizeAdminStatus,
+} from './admin-role.constants';
+import { CreateAdminUserDto } from './dto/create-admin-user.dto';
 import { LoginAdminDto } from './dto/login-admin.dto';
+import { UpdateAdminUserDto } from './dto/update-admin-user.dto';
 import { UpdateAdminProfileDto } from './dto/update-admin-profile.dto';
 import type {
   AdminAccessTokenPayload,
@@ -37,7 +48,10 @@ export class AdminAuthService implements OnModuleInit {
       where: { email: input.email.trim().toLowerCase() },
     });
 
-    if (!admin || admin.status !== 'active') {
+    if (
+      !admin ||
+      normalizeAdminStatus(admin.status) !== ADMIN_USER_STATUS_ACTIVE
+    ) {
       throw new UnauthorizedException('Incorrect email or password.');
     }
 
@@ -58,7 +72,10 @@ export class AdminAuthService implements OnModuleInit {
       where: { id: authenticatedAdmin.sub },
     });
 
-    if (!admin || admin.status !== 'active') {
+    if (
+      !admin ||
+      normalizeAdminStatus(admin.status) !== ADMIN_USER_STATUS_ACTIVE
+    ) {
       throw new UnauthorizedException('Admin account is not active.');
     }
 
@@ -73,7 +90,10 @@ export class AdminAuthService implements OnModuleInit {
       where: { id: authenticatedAdmin.sub },
     });
 
-    if (!admin || admin.status !== 'active') {
+    if (
+      !admin ||
+      normalizeAdminStatus(admin.status) !== ADMIN_USER_STATUS_ACTIVE
+    ) {
       throw new UnauthorizedException('Admin account is not active.');
     }
 
@@ -107,6 +127,103 @@ export class AdminAuthService implements OnModuleInit {
     return this.serializeAdmin(admin);
   }
 
+  async listAdminUsers() {
+    const items = await this.adminUsersRepository.find({
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    return {
+      items: items.map((item) => this.serializeAdmin(item)),
+    };
+  }
+
+  async createAdminUser(
+    authenticatedAdmin: AuthenticatedAdmin,
+    input: CreateAdminUserDto,
+  ) {
+    this.assertSuperAdmin(authenticatedAdmin);
+
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedRole = normalizeAdminRole(input.role);
+
+    const existingAdmin = await this.adminUsersRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingAdmin) {
+      throw new ConflictException(
+        'An admin account with this email already exists.',
+      );
+    }
+
+    const passwordHash = await hash(input.password, 12);
+    const username = await this.buildAvailableUsername(normalizedEmail);
+
+    const admin = this.adminUsersRepository.create({
+      email: normalizedEmail,
+      passwordHash,
+      role: normalizedRole,
+      status: ADMIN_USER_STATUS_ACTIVE,
+      username,
+      displayName: this.formatDisplayNameFromEmail(normalizedEmail),
+      authorRole:
+        normalizedRole === ADMIN_ROLE_SUPER_ADMIN
+          ? 'Regretify platform administrator.'
+          : 'Regretify market pulse editor.',
+      avatarAssetKey: null,
+    });
+
+    await this.adminUsersRepository.save(admin);
+    return this.serializeAdmin(admin);
+  }
+
+  async updateAdminUser(
+    authenticatedAdmin: AuthenticatedAdmin,
+    adminUserId: string,
+    input: UpdateAdminUserDto,
+  ) {
+    this.assertSuperAdmin(authenticatedAdmin);
+
+    const admin = await this.adminUsersRepository.findOne({
+      where: { id: adminUserId },
+    });
+
+    if (!admin) {
+      throw new NotFoundException('Admin user was not found.');
+    }
+
+    const nextRole =
+      input.role !== undefined
+        ? normalizeAdminRole(input.role)
+        : normalizeAdminRole(admin.role);
+    const nextStatus =
+      input.status !== undefined
+        ? normalizeAdminStatus(input.status)
+        : normalizeAdminStatus(admin.status);
+
+    await this.assertSuperAdminRetention(admin, nextRole, nextStatus);
+
+    admin.role = nextRole;
+    admin.status = nextStatus;
+
+    if (input.password !== undefined) {
+      if (!input.password.trim()) {
+        throw new BadRequestException('Password cannot be empty.');
+      }
+
+      admin.passwordHash = await hash(input.password, 12);
+    }
+
+    if (admin.role === ADMIN_ROLE_SUPER_ADMIN && !admin.authorRole?.trim()) {
+      admin.authorRole = 'Regretify platform administrator.';
+    }
+
+    await this.adminUsersRepository.save(admin);
+    return this.serializeAdmin(admin);
+  }
+
   async verifyAccessToken(token: string) {
     const authConfig = getAdminAuthConfig();
 
@@ -114,9 +231,30 @@ export class AdminAuthService implements OnModuleInit {
       throw new UnauthorizedException('Admin auth is not configured.');
     }
 
-    return this.jwtService.verifyAsync<AdminAccessTokenPayload>(token, {
-      secret: authConfig.jwtSecret,
+    const payload = await this.jwtService.verifyAsync<AdminAccessTokenPayload>(
+      token,
+      {
+        secret: authConfig.jwtSecret,
+      },
+    );
+
+    const admin = await this.adminUsersRepository.findOne({
+      where: { id: payload.sub },
     });
+
+    if (
+      !admin ||
+      normalizeAdminStatus(admin.status) !== ADMIN_USER_STATUS_ACTIVE
+    ) {
+      throw new UnauthorizedException('Admin account is not active.');
+    }
+
+    return {
+      sub: admin.id,
+      email: admin.email,
+      role: normalizeAdminRole(admin.role),
+      status: normalizeAdminStatus(admin.status),
+    } satisfies AdminAccessTokenPayload;
   }
 
   private async issueAccessToken(admin: AdminUser) {
@@ -129,7 +267,8 @@ export class AdminAuthService implements OnModuleInit {
     const payload: AdminAccessTokenPayload = {
       sub: admin.id,
       email: admin.email,
-      role: admin.role,
+      role: normalizeAdminRole(admin.role),
+      status: normalizeAdminStatus(admin.status),
     };
 
     return this.jwtService.signAsync(payload, {
@@ -142,8 +281,8 @@ export class AdminAuthService implements OnModuleInit {
     return {
       id: admin.id,
       email: admin.email,
-      role: admin.role,
-      status: admin.status,
+      role: normalizeAdminRole(admin.role),
+      status: normalizeAdminStatus(admin.status),
       username: admin.username,
       displayName: admin.displayName,
       authorRole: admin.authorRole,
@@ -160,10 +299,80 @@ export class AdminAuthService implements OnModuleInit {
     return localPart
       .split(/[^a-zA-Z0-9]+/)
       .filter(Boolean)
-      .map(
-        (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
-      )
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(' ');
+  }
+
+  private buildUsernameBaseFromEmail(email: string) {
+    return (
+      email
+        .split('@')[0]
+        ?.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'admin'
+    );
+  }
+
+  private async buildAvailableUsername(email: string) {
+    const baseUsername = this.buildUsernameBaseFromEmail(email);
+    let nextUsername = baseUsername;
+    let suffix = 2;
+
+    // Keep usernames deterministic while avoiding unique collisions.
+    while (
+      await this.adminUsersRepository.exists({
+        where: { username: nextUsername },
+      })
+    ) {
+      nextUsername = `${baseUsername}-${suffix}`;
+      suffix += 1;
+    }
+
+    return nextUsername;
+  }
+
+  private assertSuperAdmin(authenticatedAdmin: AuthenticatedAdmin) {
+    if (
+      normalizeAdminRole(authenticatedAdmin.role) !== ADMIN_ROLE_SUPER_ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Only a super admin can manage admin users.',
+      );
+    }
+  }
+
+  private async assertSuperAdminRetention(
+    admin: AdminUser,
+    nextRole: string,
+    nextStatus: string,
+  ) {
+    const currentRole = normalizeAdminRole(admin.role);
+    const currentStatus = normalizeAdminStatus(admin.status);
+    const willRemainActiveSuperAdmin =
+      nextRole === ADMIN_ROLE_SUPER_ADMIN &&
+      nextStatus === ADMIN_USER_STATUS_ACTIVE;
+
+    if (
+      currentRole !== ADMIN_ROLE_SUPER_ADMIN ||
+      currentStatus !== ADMIN_USER_STATUS_ACTIVE ||
+      willRemainActiveSuperAdmin
+    ) {
+      return;
+    }
+
+    const activeSuperAdminCount = await this.adminUsersRepository.count({
+      where: {
+        role: ADMIN_ROLE_SUPER_ADMIN,
+        status: ADMIN_USER_STATUS_ACTIVE,
+      },
+    });
+
+    if (activeSuperAdminCount <= 1) {
+      throw new ConflictException(
+        'At least one active super admin must remain in the system.',
+      );
+    }
   }
 
   private async bootstrapAdminUser() {
@@ -180,22 +389,26 @@ export class AdminAuthService implements OnModuleInit {
     const existingAdmin = await this.adminUsersRepository.findOne({
       where: { email: authConfig.bootstrapEmail },
     });
+    const normalizedBootstrapRole = normalizeAdminRole(
+      authConfig.bootstrapRole,
+    );
 
     if (!existingAdmin) {
       const defaultUsername =
-        authConfig.bootstrapEmail.split('@')[0]?.trim().toLowerCase() || 'admin';
+        authConfig.bootstrapEmail.split('@')[0]?.trim().toLowerCase() ||
+        'admin';
 
       await this.adminUsersRepository.save(
         this.adminUsersRepository.create({
           email: authConfig.bootstrapEmail,
           passwordHash,
-          role: authConfig.bootstrapRole,
-          status: 'active',
+          role: normalizedBootstrapRole,
+          status: ADMIN_USER_STATUS_ACTIVE,
           username: defaultUsername,
           displayName: this.formatDisplayNameFromEmail(
             authConfig.bootstrapEmail,
           ),
-          authorRole: 'Regretify market pulse editor.',
+          authorRole: 'Regretify platform administrator.',
         }),
       );
 
@@ -207,13 +420,15 @@ export class AdminAuthService implements OnModuleInit {
 
     let shouldSave = false;
 
-    if (existingAdmin.role !== authConfig.bootstrapRole) {
-      existingAdmin.role = authConfig.bootstrapRole;
+    if (normalizeAdminRole(existingAdmin.role) !== normalizedBootstrapRole) {
+      existingAdmin.role = normalizedBootstrapRole;
       shouldSave = true;
     }
 
-    if (existingAdmin.status !== 'active') {
-      existingAdmin.status = 'active';
+    if (
+      normalizeAdminStatus(existingAdmin.status) !== ADMIN_USER_STATUS_ACTIVE
+    ) {
+      existingAdmin.status = ADMIN_USER_STATUS_ACTIVE;
       shouldSave = true;
     }
 
@@ -233,7 +448,7 @@ export class AdminAuthService implements OnModuleInit {
     }
 
     if (!existingAdmin.authorRole?.trim()) {
-      existingAdmin.authorRole = 'Regretify market pulse editor.';
+      existingAdmin.authorRole = 'Regretify platform administrator.';
       shouldSave = true;
     }
 

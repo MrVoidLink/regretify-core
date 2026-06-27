@@ -14,6 +14,6 @@ export function getAdminAuthConfig() {
     bootstrapEmail:
       process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase() || '',
     bootstrapPassword: process.env.ADMIN_BOOTSTRAP_PASSWORD?.trim() || '',
-    bootstrapRole: process.env.ADMIN_BOOTSTRAP_ROLE?.trim() || 'admin',
+    bootstrapRole: process.env.ADMIN_BOOTSTRAP_ROLE?.trim() || 'super_admin',
   };
 }

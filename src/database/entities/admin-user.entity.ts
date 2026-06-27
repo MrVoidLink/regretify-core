@@ -19,7 +19,7 @@ export class AdminUser {
   @Column({ name: 'password_hash', type: 'varchar', length: 255 })
   passwordHash!: string;
 
-  @Column({ type: 'varchar', length: 64, default: 'admin' })
+  @Column({ type: 'varchar', length: 64, default: 'super_admin' })
   role!: string;
 
   @Column({ type: 'varchar', length: 32, default: 'active' })
@@ -29,7 +29,12 @@ export class AdminUser {
   @Column({ type: 'varchar', length: 64, nullable: true })
   username!: string | null;
 
-  @Column({ name: 'display_name', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'display_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   displayName!: string | null;
 
   @Column({ name: 'author_role', type: 'varchar', length: 255, nullable: true })

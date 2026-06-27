@@ -53,7 +53,8 @@ export class MarketPulsePostsService {
   async listPosts(query: ListMarketPulsePostsDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const queryBuilder = this.marketPulsePostsRepository.createQueryBuilder('post');
+    const queryBuilder =
+      this.marketPulsePostsRepository.createQueryBuilder('post');
 
     if (query.status) {
       queryBuilder.andWhere('post.status = :status', { status: query.status });
@@ -179,9 +180,11 @@ export class MarketPulsePostsService {
 
     return {
       authorAdminUserId: admin.id,
-      authorUsername: admin.username?.trim() || admin.email.split('@')[0] || 'operator',
+      authorUsername:
+        admin.username?.trim() || admin.email.split('@')[0] || 'operator',
       authorDisplayName:
-        admin.displayName?.trim() || this.formatDisplayNameFromEmail(admin.email),
+        admin.displayName?.trim() ||
+        this.formatDisplayNameFromEmail(admin.email),
       authorRole: admin.authorRole?.trim() || 'Regretify market pulse editor.',
       authorAvatarAssetKey: admin.avatarAssetKey?.trim() || null,
     } satisfies PostAuthorSnapshot;
@@ -291,9 +294,7 @@ export class MarketPulsePostsService {
     return localPart
       .split(/[^a-zA-Z0-9]+/)
       .filter(Boolean)
-      .map(
-        (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
-      )
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(' ');
   }
 

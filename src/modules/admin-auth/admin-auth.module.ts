@@ -4,8 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { getAdminAuthConfig } from '../../config/auth.config';
 import { AdminUser } from '../../database/entities/admin-user.entity';
 import { AdminAuthController } from './admin-auth.controller';
+import { AdminUsersController } from './admin-users.controller';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminAccessTokenGuard } from './guards/admin-access-token.guard';
+import { AdminRolesGuard } from './guards/admin-roles.guard';
 
 @Module({
   imports: [
@@ -23,8 +25,8 @@ import { AdminAccessTokenGuard } from './guards/admin-access-token.guard';
       },
     }),
   ],
-  controllers: [AdminAuthController],
-  providers: [AdminAuthService, AdminAccessTokenGuard],
-  exports: [AdminAuthService, AdminAccessTokenGuard],
+  controllers: [AdminAuthController, AdminUsersController],
+  providers: [AdminAuthService, AdminAccessTokenGuard, AdminRolesGuard],
+  exports: [AdminAuthService, AdminAccessTokenGuard, AdminRolesGuard],
 })
 export class AdminAuthModule {}

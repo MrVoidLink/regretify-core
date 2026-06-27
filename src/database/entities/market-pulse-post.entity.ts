@@ -37,7 +37,12 @@ export class MarketPulsePost {
   @Column({ type: 'varchar', length: 120, default: '' })
   accent!: string;
 
-  @Column({ name: 'summary_heading', type: 'varchar', length: 255, default: '' })
+  @Column({
+    name: 'summary_heading',
+    type: 'varchar',
+    length: 255,
+    default: '',
+  })
   summaryHeading!: string;
 
   @Column({ name: 'body_html', type: 'text', default: '' })

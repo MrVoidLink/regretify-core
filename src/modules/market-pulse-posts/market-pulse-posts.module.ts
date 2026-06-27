@@ -7,7 +7,10 @@ import { MarketPulsePostsController } from './market-pulse-posts.controller';
 import { MarketPulsePostsService } from './market-pulse-posts.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AdminUser, MarketPulsePost]), AdminAuthModule],
+  imports: [
+    TypeOrmModule.forFeature([AdminUser, MarketPulsePost]),
+    AdminAuthModule,
+  ],
   controllers: [MarketPulsePostsController],
   providers: [MarketPulsePostsService],
 })

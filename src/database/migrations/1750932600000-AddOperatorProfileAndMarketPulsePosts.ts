@@ -1,9 +1,7 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 import { Table, TableColumn, TableForeignKey, TableIndex } from 'typeorm';
 
-export class AddOperatorProfileAndMarketPulsePosts1750932600000
-  implements MigrationInterface
-{
+export class AddOperatorProfileAndMarketPulsePosts1750932600000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.addColumns('admin_users', [
       new TableColumn({
@@ -198,7 +196,10 @@ export class AddOperatorProfileAndMarketPulsePosts1750932600000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.dropTable('market_pulse_posts', true);
-    await queryRunner.dropIndex('admin_users', 'IDX_admin_users_username_unique');
+    await queryRunner.dropIndex(
+      'admin_users',
+      'IDX_admin_users_username_unique',
+    );
     await queryRunner.dropColumns('admin_users', [
       'username',
       'display_name',
