@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   OnModuleInit,
@@ -11,6 +12,7 @@ import { Repository } from 'typeorm';
 import { getAdminAuthConfig } from '../../config/auth.config';
 import { AdminUser } from '../../database/entities/admin-user.entity';
 import { LoginAdminDto } from './dto/login-admin.dto';
+import { UpdateAdminProfileDto } from './dto/update-admin-profile.dto';
 import type {
   AdminAccessTokenPayload,
   AuthenticatedAdmin,
@@ -63,6 +65,48 @@ export class AdminAuthService implements OnModuleInit {
     return this.serializeAdmin(admin);
   }
 
+  async updateProfile(
+    authenticatedAdmin: AuthenticatedAdmin,
+    input: UpdateAdminProfileDto,
+  ) {
+    const admin = await this.adminUsersRepository.findOne({
+      where: { id: authenticatedAdmin.sub },
+    });
+
+    if (!admin || admin.status !== 'active') {
+      throw new UnauthorizedException('Admin account is not active.');
+    }
+
+    if (input.username) {
+      const normalizedUsername = input.username.trim().toLowerCase();
+
+      const existingWithUsername = await this.adminUsersRepository.findOne({
+        where: { username: normalizedUsername },
+      });
+
+      if (existingWithUsername && existingWithUsername.id !== admin.id) {
+        throw new ConflictException('Username is already in use.');
+      }
+
+      admin.username = normalizedUsername;
+    }
+
+    if (input.displayName !== undefined) {
+      admin.displayName = input.displayName.trim();
+    }
+
+    if (input.authorRole !== undefined) {
+      admin.authorRole = input.authorRole.trim();
+    }
+
+    if (input.avatarAssetKey !== undefined) {
+      admin.avatarAssetKey = input.avatarAssetKey?.trim() || null;
+    }
+
+    await this.adminUsersRepository.save(admin);
+    return this.serializeAdmin(admin);
+  }
+
   async verifyAccessToken(token: string) {
     const authConfig = getAdminAuthConfig();
 
@@ -100,9 +144,26 @@ export class AdminAuthService implements OnModuleInit {
       email: admin.email,
       role: admin.role,
       status: admin.status,
+      username: admin.username,
+      displayName: admin.displayName,
+      authorRole: admin.authorRole,
+      avatarAssetKey: admin.avatarAssetKey,
+      avatarUrl: admin.avatarAssetKey,
       createdAt: admin.createdAt,
       updatedAt: admin.updatedAt,
     };
+  }
+
+  private formatDisplayNameFromEmail(email: string) {
+    const localPart = email.split('@')[0] ?? 'operator';
+
+    return localPart
+      .split(/[^a-zA-Z0-9]+/)
+      .filter(Boolean)
+      .map(
+        (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(),
+      )
+      .join(' ');
   }
 
   private async bootstrapAdminUser() {
@@ -121,12 +182,20 @@ export class AdminAuthService implements OnModuleInit {
     });
 
     if (!existingAdmin) {
+      const defaultUsername =
+        authConfig.bootstrapEmail.split('@')[0]?.trim().toLowerCase() || 'admin';
+
       await this.adminUsersRepository.save(
         this.adminUsersRepository.create({
           email: authConfig.bootstrapEmail,
           passwordHash,
           role: authConfig.bootstrapRole,
           status: 'active',
+          username: defaultUsername,
+          displayName: this.formatDisplayNameFromEmail(
+            authConfig.bootstrapEmail,
+          ),
+          authorRole: 'Regretify market pulse editor.',
         }),
       );
 
@@ -145,6 +214,26 @@ export class AdminAuthService implements OnModuleInit {
 
     if (existingAdmin.status !== 'active') {
       existingAdmin.status = 'active';
+      shouldSave = true;
+    }
+
+    const defaultUsername =
+      authConfig.bootstrapEmail.split('@')[0]?.trim().toLowerCase() || 'admin';
+
+    if (!existingAdmin.username?.trim()) {
+      existingAdmin.username = defaultUsername;
+      shouldSave = true;
+    }
+
+    if (!existingAdmin.displayName?.trim()) {
+      existingAdmin.displayName = this.formatDisplayNameFromEmail(
+        authConfig.bootstrapEmail,
+      );
+      shouldSave = true;
+    }
+
+    if (!existingAdmin.authorRole?.trim()) {
+      existingAdmin.authorRole = 'Regretify market pulse editor.';
       shouldSave = true;
     }
 

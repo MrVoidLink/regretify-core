@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { AdminAuthService } from './admin-auth.service';
 import { LoginAdminDto } from './dto/login-admin.dto';
+import { UpdateAdminProfileDto } from './dto/update-admin-profile.dto';
 import { AdminAccessTokenGuard } from './guards/admin-access-token.guard';
 import type { AuthenticatedAdmin } from './types/admin-auth.types';
 
@@ -18,5 +19,14 @@ export class AdminAuthController {
   @UseGuards(AdminAccessTokenGuard)
   me(@Req() request: Request & { admin: AuthenticatedAdmin }) {
     return this.adminAuthService.getProfile(request.admin);
+  }
+
+  @Patch('me/profile')
+  @UseGuards(AdminAccessTokenGuard)
+  updateProfile(
+    @Req() request: Request & { admin: AuthenticatedAdmin },
+    @Body() input: UpdateAdminProfileDto,
+  ) {
+    return this.adminAuthService.updateProfile(request.admin, input);
   }
 }
