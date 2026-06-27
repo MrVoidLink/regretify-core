@@ -67,12 +67,15 @@ export class MarketPulsePost {
   })
   storyHeroAssetKey!: string | null;
 
+  @Index()
   @Column({ type: 'varchar', length: 32, default: 'draft' })
   status!: MarketPulsePostStatus;
 
+  @Index()
   @Column({ name: 'views_count', type: 'integer', default: 0 })
   viewsCount!: number;
 
+  @Index()
   @Column({ name: 'likes_count', type: 'integer', default: 0 })
   likesCount!: number;
 
@@ -105,6 +108,7 @@ export class MarketPulsePost {
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
   publishedAt!: Date | null;
 
+  @Index()
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
