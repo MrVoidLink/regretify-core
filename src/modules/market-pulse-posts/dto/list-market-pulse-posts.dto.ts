@@ -26,6 +26,10 @@ export type MarketPulsePostSort =
 
 export class ListMarketPulsePostsDto {
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
   @IsEnum(MARKET_PULSE_POST_STATUSES)
   status?: (typeof MARKET_PULSE_POST_STATUSES)[number];
 

@@ -78,6 +78,11 @@ export class MarketPulsePostsController {
     return this.marketPulsePostsService.publishPost(id, request.admin);
   }
 
+  @Post(':id/unpublish')
+  unpublishPost(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.marketPulsePostsService.unpublishPost(id);
+  }
+
   @Delete(':id')
   deletePost(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.marketPulsePostsService.deletePost(id);

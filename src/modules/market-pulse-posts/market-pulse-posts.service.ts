@@ -6,7 +6,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  Brackets,
+  Repository,
+  SelectQueryBuilder,
+  type WhereExpressionBuilder,
+} from 'typeorm';
 import { AdminUser } from '../../database/entities/admin-user.entity';
 import {
   type MarketPulsePostStatus,
@@ -52,9 +57,28 @@ export class MarketPulsePostsService {
 
   async listPosts(query: ListMarketPulsePostsDto) {
     const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const limit = query.limit ?? 50;
     const queryBuilder =
       this.marketPulsePostsRepository.createQueryBuilder('post');
+
+    if (query.search?.trim()) {
+      const searchValue = `%${query.search.trim()}%`;
+
+      queryBuilder.andWhere(
+        new Brackets((builder: WhereExpressionBuilder) => {
+          builder
+            .where('post.title ILIKE :searchValue', { searchValue })
+            .orWhere('post.slug ILIKE :searchValue', { searchValue })
+            .orWhere('post.excerpt ILIKE :searchValue', { searchValue })
+            .orWhere('post.category ILIKE :searchValue', { searchValue })
+            .orWhere('post.badge ILIKE :searchValue', { searchValue })
+            .orWhere('post.author_username ILIKE :searchValue', { searchValue })
+            .orWhere('post.author_display_name ILIKE :searchValue', {
+              searchValue,
+            });
+        }),
+      );
+    }
 
     if (query.status) {
       queryBuilder.andWhere('post.status = :status', { status: query.status });
@@ -132,6 +156,20 @@ export class MarketPulsePostsService {
     post.authorDisplayName = authorSnapshot.authorDisplayName;
     post.authorRole = authorSnapshot.authorRole;
     post.authorAvatarAssetKey = authorSnapshot.authorAvatarAssetKey;
+
+    await this.marketPulsePostsRepository.save(post);
+    return this.serializePost(post);
+  }
+
+  async unpublishPost(id: string) {
+    const post = await this.findPostOrFail(id);
+
+    if (post.status === 'draft') {
+      return this.serializePost(post);
+    }
+
+    post.status = 'draft';
+    post.publishedAt = null;
 
     await this.marketPulsePostsRepository.save(post);
     return this.serializePost(post);
