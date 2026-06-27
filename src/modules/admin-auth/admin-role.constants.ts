@@ -32,3 +32,9 @@ export function normalizeAdminStatus(value?: string | null): AdminUserStatus {
 
   return ADMIN_USER_STATUS_ACTIVE;
 }
+
+export function getDefaultAuthorRoleForAdminRole(role?: string | null) {
+  return normalizeAdminRole(role) === ADMIN_ROLE_SUPER_ADMIN
+    ? 'Regretify platform administrator.'
+    : 'Regretify market pulse editor.';
+}

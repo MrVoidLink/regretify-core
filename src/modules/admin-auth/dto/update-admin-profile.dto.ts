@@ -23,10 +23,5 @@ export class UpdateAdminProfileDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  authorRole?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
   avatarAssetKey?: string | null;
 }

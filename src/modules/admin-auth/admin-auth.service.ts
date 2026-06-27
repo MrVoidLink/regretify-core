@@ -17,6 +17,7 @@ import { AdminUser } from '../../database/entities/admin-user.entity';
 import {
   ADMIN_ROLE_SUPER_ADMIN,
   ADMIN_USER_STATUS_ACTIVE,
+  getDefaultAuthorRoleForAdminRole,
   normalizeAdminRole,
   normalizeAdminStatus,
 } from './admin-role.constants';
@@ -115,13 +116,11 @@ export class AdminAuthService implements OnModuleInit {
       admin.displayName = input.displayName.trim();
     }
 
-    if (input.authorRole !== undefined) {
-      admin.authorRole = input.authorRole.trim();
-    }
-
     if (input.avatarAssetKey !== undefined) {
       admin.avatarAssetKey = input.avatarAssetKey?.trim() || null;
     }
+
+    admin.authorRole = getDefaultAuthorRoleForAdminRole(admin.role);
 
     await this.adminUsersRepository.save(admin);
     return this.serializeAdmin(admin);
@@ -168,10 +167,7 @@ export class AdminAuthService implements OnModuleInit {
       status: ADMIN_USER_STATUS_ACTIVE,
       username,
       displayName: this.formatDisplayNameFromEmail(normalizedEmail),
-      authorRole:
-        normalizedRole === ADMIN_ROLE_SUPER_ADMIN
-          ? 'Regretify platform administrator.'
-          : 'Regretify market pulse editor.',
+      authorRole: getDefaultAuthorRoleForAdminRole(normalizedRole),
       avatarAssetKey: null,
     });
 
@@ -213,6 +209,7 @@ export class AdminAuthService implements OnModuleInit {
 
     admin.role = nextRole;
     admin.status = nextStatus;
+    admin.authorRole = getDefaultAuthorRoleForAdminRole(nextRole);
 
     if (input.password !== undefined) {
       if (!input.password.trim()) {
@@ -220,10 +217,6 @@ export class AdminAuthService implements OnModuleInit {
       }
 
       admin.passwordHash = await hash(input.password, 12);
-    }
-
-    if (admin.role === ADMIN_ROLE_SUPER_ADMIN && !admin.authorRole?.trim()) {
-      admin.authorRole = 'Regretify platform administrator.';
     }
 
     await this.adminUsersRepository.save(admin);
@@ -291,7 +284,7 @@ export class AdminAuthService implements OnModuleInit {
       status: normalizeAdminStatus(admin.status),
       username: admin.username,
       displayName: admin.displayName,
-      authorRole: admin.authorRole,
+      authorRole: getDefaultAuthorRoleForAdminRole(admin.role),
       avatarAssetKey: admin.avatarAssetKey,
       avatarUrl: admin.avatarAssetKey,
       createdAt: admin.createdAt,
@@ -414,7 +407,7 @@ export class AdminAuthService implements OnModuleInit {
           displayName: this.formatDisplayNameFromEmail(
             authConfig.bootstrapEmail,
           ),
-          authorRole: 'Regretify platform administrator.',
+          authorRole: getDefaultAuthorRoleForAdminRole(normalizedBootstrapRole),
         }),
       );
 
@@ -453,8 +446,12 @@ export class AdminAuthService implements OnModuleInit {
       shouldSave = true;
     }
 
-    if (!existingAdmin.authorRole?.trim()) {
-      existingAdmin.authorRole = 'Regretify platform administrator.';
+    const nextBootstrapAuthorRole = getDefaultAuthorRoleForAdminRole(
+      normalizedBootstrapRole,
+    );
+
+    if (existingAdmin.authorRole !== nextBootstrapAuthorRole) {
+      existingAdmin.authorRole = nextBootstrapAuthorRole;
       shouldSave = true;
     }
 
