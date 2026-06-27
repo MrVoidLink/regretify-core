@@ -186,6 +186,12 @@ export class AdminAuthService implements OnModuleInit {
   ) {
     this.assertSuperAdmin(authenticatedAdmin);
 
+    if (adminUserId === authenticatedAdmin.sub) {
+      throw new ForbiddenException(
+        'You cannot change your own role, status, or password from this screen.',
+      );
+    }
+
     const admin = await this.adminUsersRepository.findOne({
       where: { id: adminUserId },
     });
