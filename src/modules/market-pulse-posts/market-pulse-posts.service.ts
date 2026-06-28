@@ -238,7 +238,7 @@ export class MarketPulsePostsService {
     kind: MarketPulsePostAssetKind,
     file: Express.Multer.File,
   ) {
-    await this.findPostOrFail(id);
+    const post = await this.findPostOrFail(id);
     this.assertImageFile(file);
 
     const extension = this.resolveAssetExtension(file);
@@ -248,6 +248,16 @@ export class MarketPulsePostsService {
       body: file.buffer,
       contentType: file.mimetype,
     });
+
+    if (kind === 'feed-hero') {
+      post.feedHeroAssetKey = uploadedAsset.publicUrl;
+      await this.marketPulsePostsRepository.save(post);
+    }
+
+    if (kind === 'story-hero') {
+      post.storyHeroAssetKey = uploadedAsset.publicUrl;
+      await this.marketPulsePostsRepository.save(post);
+    }
 
     return {
       kind,
