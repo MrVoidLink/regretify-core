@@ -30,6 +30,10 @@ export class ListMarketPulsePostsDto {
   search?: string;
 
   @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
   @IsEnum(MARKET_PULSE_POST_STATUSES)
   status?: (typeof MARKET_PULSE_POST_STATUSES)[number];
 

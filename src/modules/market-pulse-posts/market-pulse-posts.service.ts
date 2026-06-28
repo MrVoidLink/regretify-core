@@ -61,39 +61,10 @@ export class MarketPulsePostsService {
     const queryBuilder =
       this.marketPulsePostsRepository.createQueryBuilder('post');
 
-    if (query.search?.trim()) {
-      const searchValue = `%${query.search.trim()}%`;
-
-      queryBuilder.andWhere(
-        new Brackets((builder: WhereExpressionBuilder) => {
-          builder
-            .where('post.title ILIKE :searchValue', { searchValue })
-            .orWhere('post.slug ILIKE :searchValue', { searchValue })
-            .orWhere('post.excerpt ILIKE :searchValue', { searchValue })
-            .orWhere('post.category ILIKE :searchValue', { searchValue })
-            .orWhere('post.badge ILIKE :searchValue', { searchValue })
-            .orWhere('post.author_username ILIKE :searchValue', { searchValue })
-            .orWhere('post.author_display_name ILIKE :searchValue', {
-              searchValue,
-            });
-        }),
-      );
-    }
+    this.applyListFilters(queryBuilder, query);
 
     if (query.status) {
       queryBuilder.andWhere('post.status = :status', { status: query.status });
-    }
-
-    if (query.publishedFrom) {
-      queryBuilder.andWhere('post.published_at >= :publishedFrom', {
-        publishedFrom: new Date(`${query.publishedFrom}T00:00:00.000Z`),
-      });
-    }
-
-    if (query.publishedTo) {
-      queryBuilder.andWhere('post.published_at <= :publishedTo', {
-        publishedTo: new Date(`${query.publishedTo}T23:59:59.999Z`),
-      });
     }
 
     this.applySort(queryBuilder, query.sort ?? 'newest-created');
@@ -121,6 +92,80 @@ export class MarketPulsePostsService {
         published: publishedCount,
       },
     };
+  }
+
+  async listPublishedPosts(query: ListMarketPulsePostsDto) {
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 12, 50);
+    const queryBuilder =
+      this.marketPulsePostsRepository.createQueryBuilder('post');
+
+    queryBuilder.andWhere('post.status = :status', { status: 'published' });
+    this.applyListFilters(queryBuilder, query, {
+      allowSearch: false,
+      allowPublishedWindow: false,
+    });
+    this.applySort(queryBuilder, query.sort ?? 'latest-published');
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    const [items, total, badgeRows, categoryRows] = await Promise.all([
+      queryBuilder.getMany(),
+      this.buildPublishedPostsBaseQuery(query).getCount(),
+      this.buildPublishedPostsBaseQuery()
+        .select('post.badge', 'badge')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('post.badge')
+        .getRawMany<{ badge: string; count: string }>(),
+      this.buildPublishedPostsBaseQuery()
+        .select('post.category', 'category')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('post.category')
+        .getRawMany<{ category: string; count: string }>(),
+    ]);
+
+    return {
+      items: items.map((item) => this.serializePublicPost(item)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      summary: {
+        total,
+        byBadge: Object.fromEntries(
+          badgeRows
+            .filter((row) => row.badge?.trim())
+            .map((row) => [row.badge, Number.parseInt(row.count, 10) || 0]),
+        ),
+        byCategory: Object.fromEntries(
+          categoryRows
+            .filter((row) => row.category?.trim())
+            .map((row) => [row.category, Number.parseInt(row.count, 10) || 0]),
+        ),
+      },
+    };
+  }
+
+  async getPublishedPostBySlug(slug: string) {
+    const normalizedSlug = slug.trim().toLowerCase();
+
+    if (!normalizedSlug) {
+      throw new NotFoundException('Market Pulse post was not found.');
+    }
+
+    const post = await this.marketPulsePostsRepository.findOne({
+      where: {
+        slug: normalizedSlug,
+        status: 'published',
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Market Pulse post was not found.');
+    }
+
+    return this.serializePublicPost(post);
   }
 
   async getPostById(id: string) {
@@ -251,6 +296,65 @@ export class MarketPulsePostsService {
     post.authorAvatarAssetKey = authorSnapshot.authorAvatarAssetKey;
   }
 
+  private buildPublishedPostsBaseQuery(query?: ListMarketPulsePostsDto) {
+    const queryBuilder =
+      this.marketPulsePostsRepository.createQueryBuilder('post');
+
+    queryBuilder.andWhere('post.status = :status', { status: 'published' });
+    this.applyListFilters(queryBuilder, query, {
+      allowSearch: false,
+      allowPublishedWindow: false,
+    });
+
+    return queryBuilder;
+  }
+
+  private applyListFilters(
+    queryBuilder: SelectQueryBuilder<MarketPulsePost>,
+    query?: ListMarketPulsePostsDto,
+    options?: {
+      allowSearch?: boolean;
+      allowPublishedWindow?: boolean;
+    },
+  ) {
+    if (options?.allowSearch !== false && query?.search?.trim()) {
+      const searchValue = `%${query.search.trim()}%`;
+
+      queryBuilder.andWhere(
+        new Brackets((builder: WhereExpressionBuilder) => {
+          builder
+            .where('post.title ILIKE :searchValue', { searchValue })
+            .orWhere('post.slug ILIKE :searchValue', { searchValue })
+            .orWhere('post.excerpt ILIKE :searchValue', { searchValue })
+            .orWhere('post.category ILIKE :searchValue', { searchValue })
+            .orWhere('post.badge ILIKE :searchValue', { searchValue })
+            .orWhere('post.author_username ILIKE :searchValue', { searchValue })
+            .orWhere('post.author_display_name ILIKE :searchValue', {
+              searchValue,
+            });
+        }),
+      );
+    }
+
+    if (query?.category?.trim() && query.category.trim().toLowerCase() !== 'all') {
+      queryBuilder.andWhere('LOWER(post.category) = :category', {
+        category: query.category.trim().toLowerCase(),
+      });
+    }
+
+    if (options?.allowPublishedWindow !== false && query?.publishedFrom) {
+      queryBuilder.andWhere('post.published_at >= :publishedFrom', {
+        publishedFrom: new Date(`${query.publishedFrom}T00:00:00.000Z`),
+      });
+    }
+
+    if (options?.allowPublishedWindow !== false && query?.publishedTo) {
+      queryBuilder.andWhere('post.published_at <= :publishedTo', {
+        publishedTo: new Date(`${query.publishedTo}T23:59:59.999Z`),
+      });
+    }
+  }
+
   private assertPublishable(post: MarketPulsePost) {
     const requiredFields: Array<[string, string]> = [
       ['title', post.title],
@@ -355,6 +459,34 @@ export class MarketPulsePostsService {
       likesCount: post.likesCount,
       author: {
         adminUserId: post.authorAdminUserId,
+        username: post.authorUsername,
+        displayName: post.authorDisplayName,
+        authorRole: post.authorRole,
+        avatarAssetKey: post.authorAvatarAssetKey,
+      },
+      publishedAt: post.publishedAt,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+    };
+  }
+
+  private serializePublicPost(post: MarketPulsePost) {
+    return {
+      id: post.id,
+      slug: post.slug,
+      title: post.title,
+      excerpt: post.excerpt,
+      category: post.category,
+      badge: post.badge,
+      accent: post.accent,
+      summaryHeading: post.summaryHeading,
+      bodyHtml: post.bodyHtml,
+      tags: post.tags,
+      feedHeroAssetKey: post.feedHeroAssetKey,
+      storyHeroAssetKey: post.storyHeroAssetKey,
+      viewsCount: post.viewsCount,
+      likesCount: post.likesCount,
+      author: {
         username: post.authorUsername,
         displayName: post.authorDisplayName,
         authorRole: post.authorRole,

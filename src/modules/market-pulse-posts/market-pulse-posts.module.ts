@@ -5,13 +5,14 @@ import { MarketPulsePost } from '../../database/entities/market-pulse-post.entit
 import { AdminAuthModule } from '../admin-auth/admin-auth.module';
 import { MarketPulsePostsController } from './market-pulse-posts.controller';
 import { MarketPulsePostsService } from './market-pulse-posts.service';
+import { PublicMarketPulsePostsController } from './public-market-pulse-posts.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([AdminUser, MarketPulsePost]),
     AdminAuthModule,
   ],
-  controllers: [MarketPulsePostsController],
+  controllers: [MarketPulsePostsController, PublicMarketPulsePostsController],
   providers: [MarketPulsePostsService],
 })
 export class MarketPulsePostsModule {}
