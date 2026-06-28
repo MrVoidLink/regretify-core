@@ -20,7 +20,7 @@ import { AdminRoles } from '../admin-auth/decorators/admin-roles.decorator';
 import { AdminAccessTokenGuard } from '../admin-auth/guards/admin-access-token.guard';
 import { AdminRolesGuard } from '../admin-auth/guards/admin-roles.guard';
 import type { AuthenticatedAdmin } from '../admin-auth/types/admin-auth.types';
-import { type UploadMarketPulsePostAssetDto } from './dto/upload-market-pulse-post-asset.dto';
+import { UploadMarketPulsePostAssetDto } from './dto/upload-market-pulse-post-asset.dto';
 import { MarketPulsePostsService } from './market-pulse-posts.service';
 
 @Controller('admin/market-pulse/posts')
