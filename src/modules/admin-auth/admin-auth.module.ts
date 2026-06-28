@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { getAdminAuthConfig } from '../../config/auth.config';
 import { AdminUser } from '../../database/entities/admin-user.entity';
 import { MarketPulsePost } from '../../database/entities/market-pulse-post.entity';
+import { ObjectStorageModule } from '../object-storage/object-storage.module';
 import { AdminAuthController } from './admin-auth.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminAuthService } from './admin-auth.service';
@@ -13,6 +14,7 @@ import { AdminRolesGuard } from './guards/admin-roles.guard';
 @Module({
   imports: [
     TypeOrmModule.forFeature([AdminUser, MarketPulsePost]),
+    ObjectStorageModule,
     JwtModule.registerAsync({
       useFactory: () => {
         const authConfig = getAdminAuthConfig();

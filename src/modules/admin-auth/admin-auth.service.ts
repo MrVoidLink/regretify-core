@@ -15,6 +15,7 @@ import { Repository } from 'typeorm';
 import { getAdminAuthConfig } from '../../config/auth.config';
 import { AdminUser } from '../../database/entities/admin-user.entity';
 import { MarketPulsePost } from '../../database/entities/market-pulse-post.entity';
+import { ObjectStorageService } from '../object-storage/object-storage.service';
 import {
   ADMIN_ROLE_SUPER_ADMIN,
   ADMIN_USER_STATUS_ACTIVE,
@@ -40,6 +41,7 @@ export class AdminAuthService implements OnModuleInit {
     private readonly adminUsersRepository: Repository<AdminUser>,
     @InjectRepository(MarketPulsePost)
     private readonly marketPulsePostsRepository: Repository<MarketPulsePost>,
+    private readonly objectStorageService: ObjectStorageService,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -127,6 +129,38 @@ export class AdminAuthService implements OnModuleInit {
 
     await this.adminUsersRepository.save(admin);
     await this.syncMarketPulseAuthorSnapshot(admin);
+    return this.serializeAdmin(admin);
+  }
+
+  async uploadProfileAvatar(
+    authenticatedAdmin: AuthenticatedAdmin,
+    file: Express.Multer.File,
+  ) {
+    const admin = await this.adminUsersRepository.findOne({
+      where: { id: authenticatedAdmin.sub },
+    });
+
+    if (
+      !admin ||
+      normalizeAdminStatus(admin.status) !== ADMIN_USER_STATUS_ACTIVE
+    ) {
+      throw new UnauthorizedException('Admin account is not active.');
+    }
+
+    this.assertImageFile(file);
+
+    const extension = this.resolveAssetExtension(file);
+    const uploadedAsset = await this.objectStorageService.uploadPublicObject({
+      key: `market-pulse/authors/${admin.id}/avatar.${extension}`,
+      body: file.buffer,
+      contentType: file.mimetype,
+    });
+
+    admin.avatarAssetKey = uploadedAsset.publicUrl;
+
+    await this.adminUsersRepository.save(admin);
+    await this.syncMarketPulseAuthorSnapshot(admin);
+
     return this.serializeAdmin(admin);
   }
 
@@ -241,6 +275,36 @@ export class AdminAuthService implements OnModuleInit {
         authorAvatarAssetKey: admin.avatarAssetKey?.trim() || null,
       },
     );
+  }
+
+  private assertImageFile(file: Express.Multer.File) {
+    const acceptedMimeTypes = new Set([
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/avif',
+    ]);
+
+    if (!acceptedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PNG, JPEG, WebP, and AVIF images are allowed.',
+      );
+    }
+  }
+
+  private resolveAssetExtension(file: Express.Multer.File) {
+    switch (file.mimetype) {
+      case 'image/png':
+        return 'png';
+      case 'image/jpeg':
+        return 'jpg';
+      case 'image/webp':
+        return 'webp';
+      case 'image/avif':
+        return 'avif';
+      default:
+        throw new BadRequestException('Unsupported image format.');
+    }
   }
 
   async verifyAccessToken(token: string) {
