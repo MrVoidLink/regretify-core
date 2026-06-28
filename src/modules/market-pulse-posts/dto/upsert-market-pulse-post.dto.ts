@@ -34,11 +34,6 @@ export class UpsertMarketPulsePostDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(120)
-  accent?: string;
-
-  @IsOptional()
-  @IsString()
   @MaxLength(255)
   summaryHeading?: string;
 

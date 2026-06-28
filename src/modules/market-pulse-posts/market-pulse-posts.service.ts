@@ -324,7 +324,6 @@ export class MarketPulsePostsService {
     post.excerpt = input.excerpt?.trim() ?? '';
     post.category = input.category?.trim() ?? '';
     post.badge = input.badge?.trim() ?? '';
-    post.accent = input.accent?.trim() ?? '';
     post.summaryHeading = input.summaryHeading?.trim() ?? '';
     post.bodyHtml = input.bodyHtml?.trim() ?? '';
     post.tags = input.tags?.trim() ?? '';
@@ -536,7 +535,6 @@ export class MarketPulsePostsService {
       excerpt: post.excerpt,
       category: post.category,
       badge: post.badge,
-      accent: post.accent,
       summaryHeading: post.summaryHeading,
       bodyHtml: post.bodyHtml,
       tags: post.tags,
@@ -566,7 +564,6 @@ export class MarketPulsePostsService {
       excerpt: post.excerpt,
       category: post.category,
       badge: post.badge,
-      accent: post.accent,
       summaryHeading: post.summaryHeading,
       bodyHtml: post.bodyHtml,
       tags: post.tags,

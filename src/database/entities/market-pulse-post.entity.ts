@@ -34,9 +34,6 @@ export class MarketPulsePost {
   @Column({ type: 'varchar', length: 64, default: '' })
   badge!: string;
 
-  @Column({ type: 'varchar', length: 120, default: '' })
-  accent!: string;
-
   @Column({
     name: 'summary_heading',
     type: 'varchar',
