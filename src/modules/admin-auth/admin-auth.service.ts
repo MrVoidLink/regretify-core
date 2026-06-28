@@ -151,7 +151,7 @@ export class AdminAuthService implements OnModuleInit {
 
     const extension = this.resolveAssetExtension(file);
     const uploadedAsset = await this.objectStorageService.uploadPublicObject({
-      key: `market-pulse/authors/${admin.id}/avatar.${extension}`,
+      key: this.buildAdminAvatarKey(admin.id, extension),
       body: file.buffer,
       contentType: file.mimetype,
     });
@@ -305,6 +305,12 @@ export class AdminAuthService implements OnModuleInit {
       default:
         throw new BadRequestException('Unsupported image format.');
     }
+  }
+
+  private buildAdminAvatarKey(adminId: string, extension: string) {
+    return `market-pulse/authors/${adminId}/avatar-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}.${extension}`;
   }
 
   async verifyAccessToken(token: string) {
