@@ -23,6 +23,10 @@ import {
   type MarketPulsePostSort,
 } from './dto/list-market-pulse-posts.dto';
 import { UpsertMarketPulsePostDto } from './dto/upsert-market-pulse-post.dto';
+import {
+  type MarketPulsePostAssetKind,
+} from './dto/upload-market-pulse-post-asset.dto';
+import { ObjectStorageService } from '../object-storage/object-storage.service';
 
 type PostAuthorSnapshot = {
   authorAdminUserId: string;
@@ -39,6 +43,7 @@ export class MarketPulsePostsService {
     private readonly marketPulsePostsRepository: Repository<MarketPulsePost>,
     @InjectRepository(AdminUser)
     private readonly adminUsersRepository: Repository<AdminUser>,
+    private readonly objectStorageService: ObjectStorageService,
   ) {}
 
   async createDraft(
@@ -227,6 +232,32 @@ export class MarketPulsePostsService {
     return { success: true };
   }
 
+  async uploadPostAsset(
+    id: string,
+    _authenticatedAdmin: AuthenticatedAdmin,
+    kind: MarketPulsePostAssetKind,
+    file: Express.Multer.File,
+  ) {
+    await this.findPostOrFail(id);
+    this.assertImageFile(file);
+
+    const extension = this.resolveAssetExtension(file);
+    const key = this.buildPostAssetKey(id, kind, extension);
+    const uploadedAsset = await this.objectStorageService.uploadPublicObject({
+      key,
+      body: file.buffer,
+      contentType: file.mimetype,
+    });
+
+    return {
+      kind,
+      assetKey: uploadedAsset.key,
+      publicUrl: uploadedAsset.publicUrl,
+      contentType: file.mimetype,
+      size: file.size,
+    };
+  }
+
   private async createPost(
     authenticatedAdmin: AuthenticatedAdmin,
     input: UpsertMarketPulsePostDto,
@@ -372,6 +403,53 @@ export class MarketPulsePostsService {
       throw new BadRequestException(
         `Cannot publish a post without ${missingField[0]}.`,
       );
+    }
+  }
+
+  private assertImageFile(file: Express.Multer.File) {
+    const acceptedMimeTypes = new Set([
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/avif',
+    ]);
+
+    if (!acceptedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PNG, JPEG, WebP, and AVIF images are allowed.',
+      );
+    }
+  }
+
+  private resolveAssetExtension(file: Express.Multer.File) {
+    switch (file.mimetype) {
+      case 'image/png':
+        return 'png';
+      case 'image/jpeg':
+        return 'jpg';
+      case 'image/webp':
+        return 'webp';
+      case 'image/avif':
+        return 'avif';
+      default:
+        throw new BadRequestException('Unsupported image format.');
+    }
+  }
+
+  private buildPostAssetKey(
+    postId: string,
+    kind: MarketPulsePostAssetKind,
+    extension: string,
+  ) {
+    switch (kind) {
+      case 'feed-hero':
+        return `market-pulse/posts/${postId}/feed/hero.${extension}`;
+      case 'story-hero':
+        return `market-pulse/posts/${postId}/story/hero.${extension}`;
+      case 'inline':
+        return `market-pulse/posts/${postId}/content/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}.${extension}`;
     }
   }
 

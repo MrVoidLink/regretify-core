@@ -21,6 +21,12 @@ services:
       ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-admin@regretify.app}
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-replace-in-portainer}
       ADMIN_BOOTSTRAP_ROLE: ${ADMIN_BOOTSTRAP_ROLE:-admin}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-ead6309d1fe6c509012d949ad110c46b}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-regretify-media}
+      R2_ENDPOINT: ${R2_ENDPOINT:-https://ead6309d1fe6c509012d949ad110c46b.r2.cloudflarestorage.com}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-replace-in-portainer}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-replace-in-portainer}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-https://pub-a2e9dc274a69453a890cf0d83ab4c040.r2.dev}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 30s

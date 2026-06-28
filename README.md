@@ -41,9 +41,52 @@ ADMIN_AUTH_JWT_EXPIRES_IN_SECONDS=43200
 ADMIN_BOOTSTRAP_EMAIL=admin@regretify.app
 ADMIN_BOOTSTRAP_PASSWORD=...
 ADMIN_BOOTSTRAP_ROLE=admin
+R2_ACCOUNT_ID=ead6309d1fe6c509012d949ad110c46b
+R2_BUCKET_NAME=regretify-media
+R2_ENDPOINT=https://ead6309d1fe6c509012d949ad110c46b.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_PUBLIC_BASE_URL=https://pub-a2e9dc274a69453a890cf0d83ab4c040.r2.dev
 ```
 
 Example placeholders live in [.env.example](./.env.example).
+
+## R2 Media Layout
+
+Use `core` as the only writer to R2. The admin app uploads to `core`, `core` writes into the bucket, and the client reads the final public URL.
+
+Recommended object key layout:
+
+```txt
+market-pulse/
+  posts/
+    {postId}/
+      feed/hero.{ext}
+      story/hero.{ext}
+      content/
+        01.{ext}
+        02.{ext}
+        03.{ext}
+  authors/
+    {adminUserId}/avatar.{ext}
+```
+
+Current database media fields already map cleanly to this:
+- `feedHeroAssetKey` -> `market-pulse/posts/{postId}/feed/hero.{ext}`
+- `storyHeroAssetKey` -> `market-pulse/posts/{postId}/story/hero.{ext}`
+- `authorAvatarAssetKey` -> `market-pulse/authors/{adminUserId}/avatar.{ext}`
+
+Inline story images do not need dedicated columns on `market_pulse_posts`.
+The story editor can upload each inline image to:
+- `market-pulse/posts/{postId}/content/{sequence}.{ext}`
+
+Then the editor writes the final public image URL directly into `bodyHtml`:
+- `<img src="https://media.../market-pulse/posts/{postId}/content/01.webp" ... />`
+
+Notes:
+- `R2_ENDPOINT` is the S3-compatible upload endpoint used by `core`.
+- `R2_PUBLIC_BASE_URL` should point to the active public media host. For the current setup, use `https://pub-a2e9dc274a69453a890cf0d83ab4c040.r2.dev`.
+- For now, `admin` and `client` do not need extra R2 secrets in Portainer. Only `core` needs them.
 
 ## Local Development
 
