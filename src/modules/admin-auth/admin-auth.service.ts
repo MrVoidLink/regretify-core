@@ -14,6 +14,7 @@ import { compare, hash } from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { getAdminAuthConfig } from '../../config/auth.config';
 import { AdminUser } from '../../database/entities/admin-user.entity';
+import { MarketPulsePost } from '../../database/entities/market-pulse-post.entity';
 import {
   ADMIN_ROLE_SUPER_ADMIN,
   ADMIN_USER_STATUS_ACTIVE,
@@ -37,6 +38,8 @@ export class AdminAuthService implements OnModuleInit {
   constructor(
     @InjectRepository(AdminUser)
     private readonly adminUsersRepository: Repository<AdminUser>,
+    @InjectRepository(MarketPulsePost)
+    private readonly marketPulsePostsRepository: Repository<MarketPulsePost>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -123,6 +126,7 @@ export class AdminAuthService implements OnModuleInit {
     admin.authorRole = getDefaultAuthorRoleForAdminRole(admin.role);
 
     await this.adminUsersRepository.save(admin);
+    await this.syncMarketPulseAuthorSnapshot(admin);
     return this.serializeAdmin(admin);
   }
 
@@ -220,7 +224,23 @@ export class AdminAuthService implements OnModuleInit {
     }
 
     await this.adminUsersRepository.save(admin);
+    await this.syncMarketPulseAuthorSnapshot(admin);
     return this.serializeAdmin(admin);
+  }
+
+  private async syncMarketPulseAuthorSnapshot(admin: AdminUser) {
+    await this.marketPulsePostsRepository.update(
+      { authorAdminUserId: admin.id },
+      {
+        authorUsername:
+          admin.username?.trim() || admin.email.split('@')[0] || 'operator',
+        authorDisplayName:
+          admin.displayName?.trim() ||
+          this.formatDisplayNameFromEmail(admin.email),
+        authorRole: getDefaultAuthorRoleForAdminRole(admin.role),
+        authorAvatarAssetKey: admin.avatarAssetKey?.trim() || null,
+      },
+    );
   }
 
   async verifyAccessToken(token: string) {
