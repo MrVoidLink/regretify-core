@@ -173,6 +173,39 @@ export class MarketPulsePostsService {
     return this.serializePublicPost(post);
   }
 
+  async recordPublishedPostView(slug: string) {
+    const normalizedSlug = slug.trim().toLowerCase();
+
+    if (!normalizedSlug) {
+      throw new NotFoundException('Market Pulse post was not found.');
+    }
+
+    const post = await this.marketPulsePostsRepository.findOne({
+      where: {
+        slug: normalizedSlug,
+        status: 'published',
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Market Pulse post was not found.');
+    }
+
+    await this.marketPulsePostsRepository.increment(
+      { id: post.id },
+      'viewsCount',
+      1,
+    );
+
+    const updatedPost = await this.findPostOrFail(post.id);
+
+    return {
+      id: updatedPost.id,
+      slug: updatedPost.slug,
+      viewsCount: updatedPost.viewsCount,
+    };
+  }
+
   async getPostById(id: string) {
     const post = await this.findPostOrFail(id);
     return this.serializePost(post);

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ListMarketPulsePostsDto } from './dto/list-market-pulse-posts.dto';
 import { MarketPulsePostsService } from './market-pulse-posts.service';
 
@@ -16,5 +16,10 @@ export class PublicMarketPulsePostsController {
   @Get(':slug')
   getPublishedPostBySlug(@Param('slug') slug: string) {
     return this.marketPulsePostsService.getPublishedPostBySlug(slug);
+  }
+
+  @Post(':slug/views')
+  recordPublishedPostView(@Param('slug') slug: string) {
+    return this.marketPulsePostsService.recordPublishedPostView(slug);
   }
 }
